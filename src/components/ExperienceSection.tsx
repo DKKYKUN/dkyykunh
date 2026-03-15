@@ -23,7 +23,7 @@ const experiences = [
   {
     title: "Electrical Engineering Student",
     company: "Universitas Bengkulu",
-    period: "2024 - Present",
+    period: "2025 - Present",
     desc: "Studying electrical engineering while pursuing passion in web development and programming.",
   },
 ];
