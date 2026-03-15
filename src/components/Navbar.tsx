@@ -7,7 +7,7 @@ const navItems = [
   { label: "Projects", href: "#projects", icon: FolderOpen },
   { label: "Experience", href: "#experience", icon: Briefcase },
   { label: "Skills", href: "#skills", icon: Wrench },
-  { label: "Certificates", href: "#certificates", icon: Award },
+  { label: "Foto", href: "#certificates", icon: Award },
   { label: "Testimonials", href: "#testimonials", icon: MessageSquare },
   { label: "Contact", href: "#contact", icon: Mail },
 ];
