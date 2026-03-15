@@ -62,9 +62,9 @@ export default function CertificatesSection() {
           viewport={{ once: true }}
           className="text-center mb-10"
         >
-          <h2 className="section-heading">Certificates</h2>
+          <h2 className="section-heading">Album foto</h2>
           <p className="section-subtitle mx-auto mt-3">
-            Sertifikat dan pencapaian yang telah saya raih.
+            Album dan Memory Foto.
           </p>
         </motion.div>
 
@@ -74,12 +74,12 @@ export default function CertificatesSection() {
               onClick={() => setShowPasswordModal(true)}
               className="btn-outline gap-2"
             >
-              <Lock size={16} /> Upload Sertifikat (Admin Only)
+              <Lock size={16} /> Upload Foto (Admin Only)
             </button>
           ) : (
             <div className="flex items-center gap-3">
               <label className="btn-primary cursor-pointer gap-2">
-                <Upload size={16} /> Upload Sertifikat
+                <Upload size={16} /> Upload Foto
                 <input
                   type="file"
                   accept="image/*"
@@ -103,9 +103,9 @@ export default function CertificatesSection() {
             className="glass-card p-12 text-center"
           >
             <Award size={48} className="mx-auto text-muted-foreground/30 mb-4" />
-            <p className="text-muted-foreground">Belum ada sertifikat yang diupload.</p>
+            <p className="text-muted-foreground">Belum ada foto yang diupload.</p>
             <p className="text-xs text-muted-foreground/50 mt-1">
-              Klik tombol upload untuk menambahkan sertifikat.
+              Klik tombol upload untuk menambahkan foto.
             </p>
           </motion.div>
         ) : (
@@ -175,7 +175,7 @@ export default function CertificatesSection() {
               </button>
             </div>
             <p className="text-sm text-muted-foreground">
-              Masukkan password untuk mengupload sertifikat.
+              Masukkan password untuk mengupload foto.
             </p>
             <input
               type="password"
