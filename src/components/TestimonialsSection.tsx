@@ -1,7 +1,19 @@
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import StarRating from "./StarRating";
 import { Send, Star } from "lucide-react";
+import { createClient } from "@supabase/supabase-js";
+
+/* =========================
+   SUPABASE CONNECTION
+========================= */
+
+const supabaseUrl = "https://fvgvmkzdjdmkovxtqibt.supabase.co";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ2Z3Zta3pkamRta292eHRxaWJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1ODM1MzYsImV4cCI6MjA4OTE1OTUzNn0.kJHUjgeOhmsWBIyscoVrpc_i8z2iiT9lcfPYMqcr9zo";
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+/* ========================= */
 
 interface Feedback {
   name: string;
@@ -15,10 +27,47 @@ export default function TestimonialsSection() {
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [form, setForm] = useState<Feedback>({ name: "", email: "", position: "", message: "", rating: 0 });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  /* =========================
+     LOAD TESTIMONIAL FROM DB
+  ========================= */
+
+  useEffect(() => {
+    const loadFeedback = async () => {
+      const { data } = await supabase
+        .from("testimonials")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (data) {
+        setFeedbacks(data);
+      }
+    };
+
+    loadFeedback();
+  }, []);
+
+  /* =========================
+     SUBMIT FEEDBACK
+  ========================= */
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!form.name || !form.message || form.rating === 0) return;
+
+    /* kirim ke supabase */
+    await supabase.from("testimonials").insert([
+      {
+        name: form.name,
+        email: form.email,
+        position: form.position,
+        message: form.message,
+        rating: form.rating
+      }
+    ]);
+
     setFeedbacks([...feedbacks, form]);
+
     setForm({ name: "", email: "", position: "", message: "", rating: 0 });
   };
 
@@ -29,26 +78,41 @@ export default function TestimonialsSection() {
           <h2 className="section-heading">Feedback</h2>
           <p className="section-subtitle mx-auto mt-3">Please fill in your feedback, friend. For email, fill in as in the example, for position, mark (-).</p>
         </motion.div>
+
         <div className="grid md:grid-cols-2 gap-8">
+
           <motion.div initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
             <div className="glass-card p-6">
               <h3 className="font-semibold text-foreground mb-4">Feedback</h3>
+
               <form onSubmit={handleSubmit} className="space-y-4">
+
                 <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Your Name" className="w-full bg-secondary/60 rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary" />
+
                 <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="email@example.com" className="w-full bg-secondary/60 rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary" />
+
                 <input value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} placeholder="Position (atau -)" className="w-full bg-secondary/60 rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary" />
+
                 <textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} placeholder="Your feedback message..." rows={3} className="w-full bg-secondary/60 rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
+
                 <div className="flex items-center gap-3">
                   <span className="text-sm text-muted-foreground">Rating:</span>
                   <StarRating rating={form.rating} onRate={(r) => setForm({ ...form, rating: r })} />
                 </div>
-                <button type="submit" className="btn-primary w-full justify-center"><Send size={14} /> Submit Feedback</button>
+
+                <button type="submit" className="btn-primary w-full justify-center">
+                  <Send size={14} /> Submit Feedback
+                </button>
+
               </form>
             </div>
           </motion.div>
+
           <motion.div initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
             <div className="glass-card p-6 min-h-[300px]">
+
               <h3 className="font-semibold text-foreground mb-4">Testimonials</h3>
+
               {feedbacks.length === 0 ? (
                 <div className="text-center text-muted-foreground text-sm py-12">
                   <p>No Have Feedback in Here!</p>
@@ -56,26 +120,36 @@ export default function TestimonialsSection() {
                 </div>
               ) : (
                 <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+
                   {feedbacks.map((fb, i) => (
                     <div key={i} className="bg-secondary/40 rounded-lg p-4">
+
                       <div className="flex justify-between items-start">
+
                         <div>
                           <p className="font-medium text-foreground text-sm">{fb.name}</p>
                           <p className="text-xs text-muted-foreground">{fb.position || "-"}</p>
                         </div>
+
                         <div className="flex gap-0.5">
                           {[1, 2, 3, 4, 5].map((s) => (
                             <Star key={s} size={12} className={s <= fb.rating ? "fill-primary text-primary" : "text-muted-foreground/30"} />
                           ))}
                         </div>
+
                       </div>
+
                       <p className="text-sm text-muted-foreground mt-2">{fb.message}</p>
+
                     </div>
                   ))}
+
                 </div>
               )}
+
             </div>
           </motion.div>
+
         </div>
       </div>
     </section>
