@@ -1,6 +1,12 @@
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Upload, Lock, Unlock, X, Award, FileImage } from "lucide-react";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = "https://bykyjotuezyuknupyyat.supabase.co";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5a3lqb3R1ZXp5dWtudXB5eWF0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1ODExMTQsImV4cCI6MjA4OTE1NzExNH0.79frbaXu_RRhvVsMYwUP402Y0iBooxmhvu8pyoSNSjw";
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 interface Certificate {
   id: string;
@@ -18,6 +24,30 @@ export default function CertificatesSection() {
   const [passwordError, setPasswordError] = useState(false);
   const [previewImg, setPreviewImg] = useState<string | null>(null);
 
+  // load foto dari supabase
+  useEffect(() => {
+    const loadPhotos = async () => {
+      const { data } = await supabase.storage
+        .from("photos")
+        .list("", { limit: 100 });
+
+      if (!data) return;
+
+      const images = data.map((file) => ({
+        id: file.name,
+        name: file.name,
+        imageUrl:
+          supabase.storage
+            .from("photos")
+            .getPublicUrl(file.name).data.publicUrl,
+      }));
+
+      setCertificates(images);
+    };
+
+    loadPhotos();
+  }, []);
+
   const handleUnlock = () => {
     if (password === ADMIN_PASSWORD) {
       setIsUnlocked(true);
@@ -29,57 +59,79 @@ export default function CertificatesSection() {
     }
   };
 
-  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // upload foto ke supabase
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isUnlocked) return;
+
     const files = e.target.files;
     if (!files) return;
 
-    Array.from(files).forEach((file) => {
-      if (!file.type.startsWith("image/")) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const newCert: Certificate = {
-          id: crypto.randomUUID(),
-          name: file.name.replace(/\.[^/.]+$/, ""),
-          imageUrl: ev.target?.result as string,
-        };
-        setCertificates((prev) => [...prev, newCert]);
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith("image/")) continue;
+
+      const fileName = `${Date.now()}-${file.name}`;
+
+      const { error } = await supabase.storage
+        .from("photos")
+        .upload(fileName, file);
+
+      if (error) {
+        console.log(error);
+        continue;
+      }
+
+      const { data } = supabase.storage
+        .from("photos")
+        .getPublicUrl(fileName);
+
+      const newCert: Certificate = {
+        id: fileName,
+        name: file.name.replace(/\.[^/.]+$/, ""),
+        imageUrl: data.publicUrl,
       };
-      reader.readAsDataURL(file);
-    });
+
+      setCertificates((prev) => [...prev, newCert]);
+    }
+
     e.target.value = "";
   };
 
-  const handleDelete = (id: string) => {
+  // delete foto
+  const handleDelete = async (id: string) => {
+    if (!isUnlocked) return;
+
+    const confirmDelete = confirm("Yakin ingin menghapus foto?");
+    if (!confirmDelete) return;
+
+    await supabase.storage.from("photos").remove([id]);
+
     setCertificates((prev) => prev.filter((c) => c.id !== id));
   };
 
   return (
     <section id="certificates" className="py-20">
       <div className="max-w-6xl mx-auto px-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="text-center mb-10"
-        >
-          <h2 className="section-heading">Album foto</h2>
-          <p className="section-subtitle mx-auto mt-3">
-            Album dan Memory Foto.
-          </p>
-        </motion.div>
 
+        <div className="text-center mb-10">
+          <h2 className="section-heading">Album Foto</h2>
+          <p className="section-subtitle mt-3">
+            Album dan Memory Foto
+          </p>
+        </div>
+
+        {/* Upload Button */}
         <div className="flex justify-center mb-8">
           {!isUnlocked ? (
             <button
               onClick={() => setShowPasswordModal(true)}
               className="btn-outline gap-2"
             >
-              <Lock size={16} /> Upload Foto (Admin Only)
+              <Lock size={16}/> Upload Foto (Admin Only)
             </button>
           ) : (
-            <div className="flex items-center gap-3">
+            <div className="flex gap-3">
               <label className="btn-primary cursor-pointer gap-2">
-                <Upload size={16} /> Upload Foto
+                <Upload size={16}/> Upload Foto
                 <input
                   type="file"
                   accept="image/*"
@@ -88,64 +140,52 @@ export default function CertificatesSection() {
                   className="hidden"
                 />
               </label>
-              <button onClick={() => setIsUnlocked(false)} className="btn-outline gap-2">
-                <Lock size={16} /> Lock
+
+              <button
+                onClick={() => setIsUnlocked(false)}
+                className="btn-outline"
+              >
+                Lock
               </button>
             </div>
           )}
         </div>
 
+        {/* Gallery */}
         {certificates.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            className="glass-card p-12 text-center"
-          >
-            <Award size={48} className="mx-auto text-muted-foreground/30 mb-4" />
-            <p className="text-muted-foreground">Belum ada foto yang diupload.</p>
-            <p className="text-xs text-muted-foreground/50 mt-1">
-              Klik tombol upload untuk menambahkan foto.
-            </p>
-          </motion.div>
+          <div className="text-center p-12">
+            <Award size={48} className="mx-auto mb-4 opacity-40"/>
+            <p>Belum ada foto yang diupload</p>
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {certificates.map((cert, i) => (
-              <motion.div
-                key={cert.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="glow-card overflow-hidden group relative"
-              >
+            {certificates.map((cert) => (
+              <div key={cert.id} className="relative group">
+
                 <div
                   className="aspect-[4/3] cursor-pointer overflow-hidden"
                   onClick={() => setPreviewImg(cert.imageUrl)}
                 >
                   <img
                     src={cert.imageUrl}
-                    alt={cert.name}
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    className="w-full h-full object-cover"
                   />
                 </div>
-                <div className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <FileImage size={14} className="text-primary" />
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {cert.name}
-                    </p>
+
+                <div className="p-3 flex justify-between">
+                  <div className="flex gap-2 items-center">
+                    <FileImage size={14}/>
+                    <span className="text-sm">{cert.name}</span>
                   </div>
+
                   {isUnlocked && (
-                    <button
-                      onClick={() => handleDelete(cert.id)}
-                      className="text-muted-foreground hover:text-destructive transition-colors"
-                    >
-                      <X size={14} />
+                    <button onClick={() => handleDelete(cert.id)}>
+                      <X size={14}/>
                     </button>
                   )}
                 </div>
-              </motion.div>
+
+              </div>
             ))}
           </div>
         )}
@@ -153,73 +193,50 @@ export default function CertificatesSection() {
 
       {/* Password Modal */}
       {showPasswordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="glass-card p-6 w-[340px] space-y-4"
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-foreground flex items-center gap-2">
-                <Unlock size={18} className="text-primary" /> Admin Access
-              </h3>
-              <button
-                onClick={() => {
-                  setShowPasswordModal(false);
-                  setPassword("");
-                  setPasswordError(false);
-                }}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Masukkan password untuk mengupload foto.
-            </p>
+        <div className="fixed inset-0 flex items-center justify-center bg-black/60">
+
+          <div className="bg-white p-6 rounded-xl w-[320px] space-y-4">
+
+            <h3 className="font-semibold flex gap-2 items-center">
+              <Unlock size={18}/> Admin Access
+            </h3>
+
             <input
               type="password"
+              placeholder="Password"
               value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setPasswordError(false);
-              }}
-              onKeyDown={(e) => e.key === "Enter" && handleUnlock()}
-              placeholder="Enter password..."
-              className={`w-full bg-secondary/60 rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 ${
-                passwordError ? "focus:ring-destructive ring-1 ring-destructive" : "focus:ring-primary"
-              }`}
+              onChange={(e)=>setPassword(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2"
             />
+
             {passwordError && (
-              <p className="text-xs text-destructive">Password salah! Coba lagi.</p>
+              <p className="text-red-500 text-sm">
+                Password salah
+              </p>
             )}
-            <button onClick={handleUnlock} className="btn-primary w-full justify-center">
-              <Unlock size={14} /> Unlock
+
+            <button
+              onClick={handleUnlock}
+              className="btn-primary w-full"
+            >
+              Unlock
             </button>
-          </motion.div>
+
+          </div>
+
         </div>
       )}
 
-      {/* Image Preview Modal */}
+      {/* Preview */}
       {previewImg && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-sm cursor-pointer"
-          onClick={() => setPreviewImg(null)}
+          className="fixed inset-0 flex items-center justify-center bg-black/80"
+          onClick={()=>setPreviewImg(null)}
         >
-          <motion.img
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
+          <img
             src={previewImg}
-            alt="Certificate Preview"
-            className="max-w-[90vw] max-h-[90vh] object-contain rounded-xl"
-            style={{ boxShadow: "var(--shadow-card)" }}
+            className="max-w-[90vw] max-h-[90vh]"
           />
-          <button
-            className="absolute top-6 right-6 text-foreground bg-secondary/80 rounded-full p-2"
-            onClick={() => setPreviewImg(null)}
-          >
-            <X size={20} />
-          </button>
         </div>
       )}
     </section>
